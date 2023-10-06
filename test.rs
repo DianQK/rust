@@ -1,7 +1,4 @@
-#![feature(inline_const)]
+#![crate_type = "lib"]
 
-fn main() {
-    const {
-        assert!(-9.223372036854776e18f64 as i64 == 0x8000000000000000u64 as i64);
-    }
-}
+const _: u32 = -1.1f32 as i32 as u32 - 1 as u32;
+
