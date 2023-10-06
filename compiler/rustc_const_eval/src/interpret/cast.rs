@@ -180,6 +180,7 @@ impl<'mir, 'tcx: 'mir, M: Machine<'mir, 'tcx>> InterpCx<'mir, 'tcx, M> {
     }
 
     /// Handles 'FloatToFloat' and 'FloatToInt' casts.
+    #[inline(never)]
     pub fn float_to_float_or_int(
         &self,
         src: &ImmTy<'tcx, M::Provenance>,
@@ -306,6 +307,7 @@ impl<'mir, 'tcx: 'mir, M: Machine<'mir, 'tcx>> InterpCx<'mir, 'tcx, M> {
     }
 
     /// Low-level cast helper function. Converts an apfloat `f` into int or float types.
+    // #[inline(never)]
     fn cast_from_float<F>(&self, f: F, dest_ty: Ty<'tcx>) -> Scalar<M::Provenance>
     where
         F: Float + Into<Scalar<M::Provenance>> + FloatConvert<Single> + FloatConvert<Double>,
