@@ -757,7 +757,6 @@ LLVMRustOptimize(
     assert(!PGOUsePath && !PGOSampleUsePath);
     PGOOpt = PGOOptions(PGOGenPath, "", "",
 #if LLVM_VERSION_GE(17, 0)
-                        "",
                         FS,
 #endif
                         PGOOptions::IRInstr, PGOOptions::NoCSAction,
@@ -766,7 +765,6 @@ LLVMRustOptimize(
     assert(!PGOSampleUsePath);
     PGOOpt = PGOOptions(PGOUsePath, "", "",
 #if LLVM_VERSION_GE(17, 0)
-                        "",
                         FS,
 #endif
                         PGOOptions::IRUse, PGOOptions::NoCSAction,
@@ -774,7 +772,6 @@ LLVMRustOptimize(
   } else if (PGOSampleUsePath) {
     PGOOpt = PGOOptions(PGOSampleUsePath, "", "",
 #if LLVM_VERSION_GE(17, 0)
-                        "",
                         FS,
 #endif
                         PGOOptions::SampleUse, PGOOptions::NoCSAction,
@@ -782,7 +779,6 @@ LLVMRustOptimize(
   } else if (DebugInfoForProfiling) {
     PGOOpt = PGOOptions("", "", "",
 #if LLVM_VERSION_GE(17, 0)
-                        "",
                         FS,
 #endif
                         PGOOptions::NoAction, PGOOptions::NoCSAction,
