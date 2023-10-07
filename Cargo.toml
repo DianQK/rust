@@ -64,7 +64,7 @@ exclude = [
 ]
 
 [profile.release.package.rustc_const_eval]
-codegen-units = 16
+codegen-units = 1
 
 [profile.release.package.compiler_builtins]
 # The compiler-builtins crate cannot reference libcore, and it's own CI will
