@@ -1,3 +1,5 @@
+cargo-features = ["profile-rustflags"]
+
 [workspace]
 resolver = "1"
 members = [
@@ -65,6 +67,11 @@ exclude = [
 
 [profile.release.package.rustc_const_eval]
 codegen-units = 1
+# BISECT: running pass (560953) MemCpyOptPass on _RNvMNtNtCsiODAygBxQYA_16rustc_const_eval9interpret4castINtNtB4_12eval_context8InterpCxNtNtNtB6_10const_eval7machine22CompileTimeInterpreterE21float_to_float_or_intB6_
+# BISECT: running pass (560954) DSEPass on _RNvMNtNtCsiODAygBxQYA_16rustc_const_eval9interpret4castINtNtB4_12eval_context8InterpCxNtNtNtB6_10const_eval7machine22CompileTimeInterpreterE21float_to_float_or_intB6_
+rustflags = [
+  "-C", "llvm-args=-opt-bisect-limit=560954",
+]
 
 [profile.release.package.compiler_builtins]
 # The compiler-builtins crate cannot reference libcore, and it's own CI will
