@@ -1,3 +1,5 @@
+cargo-features = ["profile-rustflags"]
+
 [workspace]
 resolver = "1"
 members = [
@@ -61,6 +63,11 @@ exclude = [
   "src/tools/x",
   # stdarch has its own Cargo workspace
   "library/stdarch",
+]
+
+[profile.release.package.rustc_mir_build]
+rustflags = [
+  "-C", "save-temps",
 ]
 
 [profile.release.package.compiler_builtins]
