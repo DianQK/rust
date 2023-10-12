@@ -548,6 +548,7 @@ impl SplitVarLenSlice {
     }
 
     /// Pass a set of slices relative to which to split this one.
+    #[inline(never)]
     fn split(&mut self, slices: impl Iterator<Item = SliceKind>) {
         let VarLen(max_prefix_len, max_suffix_len) = &mut self.max_slice else {
             // No need to split
