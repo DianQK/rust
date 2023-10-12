@@ -1,3 +1,4 @@
+/*.log
 /const_prop_slice_pat_ice
 /*.txt
 # This file should only ignore things that are generated during a `x.py` build,

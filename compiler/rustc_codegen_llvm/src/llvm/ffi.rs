@@ -2381,4 +2381,6 @@ extern "C" {
         callback: GetSymbolsCallback,
         error_callback: GetSymbolsErrorCallback,
     ) -> *mut c_void;
+
+    pub fn LLVMRustContextSetSetRunAllOptPassGate(context: &Context);
 }

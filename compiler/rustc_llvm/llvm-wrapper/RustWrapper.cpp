@@ -10,10 +10,12 @@
 #include "llvm/IR/IntrinsicsARM.h"
 #include "llvm/IR/LLVMRemarkStreamer.h"
 #include "llvm/IR/Mangler.h"
+#include "llvm/IR/OptBisect.h"
 #include "llvm/Remarks/RemarkStreamer.h"
 #include "llvm/Remarks/RemarkSerializer.h"
 #include "llvm/Remarks/RemarkFormat.h"
 #include "llvm/Support/ToolOutputFile.h"
+#include <llvm/IR/LLVMContext.h>
 #if LLVM_VERSION_GE(16, 0)
 #include "llvm/Support/ModRef.h"
 #endif
@@ -2059,4 +2061,20 @@ extern "C" bool LLVMRustLLVMHasZstdCompressionForDebugSymbols() {
 #else
   return false;
 #endif
+}
+
+struct RunAllOptPassGate : public OptPassGate {
+  bool shouldRunPass(const StringRef PassName, StringRef IRDescription) override {
+    return true;
+  }
+  bool isEnabled() const override { return true; }
+};
+
+static RunAllOptPassGate &getRunAllOptPassGate() {
+  static RunAllOptPassGate RunAllOptPassGate;
+  return RunAllOptPassGate;
+}
+
+extern "C" void LLVMRustContextSetSetRunAllOptPassGate(LLVMContextRef C) {
+  unwrap(C)->setOptPassGate(getRunAllOptPassGate());
 }

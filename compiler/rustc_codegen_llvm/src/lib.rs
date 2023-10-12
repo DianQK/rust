@@ -415,6 +415,13 @@ impl ModuleLlvm {
     fn new(tcx: TyCtxt<'_>, mod_name: &str) -> Self {
         unsafe {
             let llcx = llvm::LLVMRustContextCreate(tcx.sess.fewer_names());
+            if let Some(ref only_cgu) = tcx.sess.opts.unstable_opts.llvm_opt_bisect_limit_cgu {
+                if mod_name != only_cgu {
+                    llvm::LLVMRustContextSetSetRunAllOptPassGate(llcx);
+                } else {
+                    eprintln!("opt-bisect-only: {}", only_cgu);
+                }
+            }
             let llmod_raw = context::create_module(tcx, llcx, mod_name) as *const _;
             ModuleLlvm { llmod_raw, llcx, tm: create_target_machine(tcx, mod_name) }
         }
