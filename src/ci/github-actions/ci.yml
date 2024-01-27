@@ -76,7 +76,7 @@ x--expand-yaml-anchors--remove:
     env: {}
 
   - &job-linux-4c
-    os: ubuntu-20.04-4core-16gb
+    os: ubuntu-20.04
     <<: *base-job
 
   - &job-linux-8c
@@ -328,19 +328,8 @@ jobs:
     strategy:
       matrix:
         include:
-          - name: mingw-check
+          - name: dist-loongarch64-linux
             <<: *job-linux-4c
-
-          - name: mingw-check-tidy
-            <<: *job-linux-4c
-
-          - name: x86_64-gnu-llvm-16
-            env:
-              ENABLE_GCC_CODEGEN: "1"
-            <<: *job-linux-16c
-
-          - name: x86_64-gnu-tools
-            <<: *job-linux-16c
 
   auto:
     <<: *base-ci-job
