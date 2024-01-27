@@ -26,4 +26,4 @@ ENV CC_loongarch64_unknown_linux_gnu=loongarch64-unknown-linux-gnu-gcc \
 ENV HOSTS=loongarch64-unknown-linux-gnu
 
 ENV RUST_CONFIGURE_ARGS --enable-extended --disable-docs
-ENV SCRIPT python3 ../x.py dist --host $HOSTS --target $HOSTS
+ENV SCRIPT python3 ../x.py build src/tools/miri/cargo-miri --host $HOSTS --target $HOSTS
