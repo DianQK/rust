@@ -4,26 +4,35 @@ fn checked_shl(_1: u32, _2: u32) -> Option<u32> {
     debug x => _1;
     debug rhs => _2;
     let mut _0: std::option::Option<u32>;
+    let mut _7: u32;
+    let mut _8: u32;
     scope 1 (inlined core::num::<impl u32>::checked_shl) {
-        debug self => _1;
-        debug rhs => _2;
+        debug self => _7;
+        debug rhs => _8;
         let mut _6: bool;
+        let _9: u32;
+        let _10: bool;
+        let mut _11: u32;
+        let mut _12: u32;
         scope 2 {
-            debug a => _4;
-            debug b => _5;
+            debug a => _9;
+            debug b => _10;
         }
         scope 3 (inlined core::num::<impl u32>::overflowing_shl) {
-            debug self => _1;
-            debug rhs => _2;
+            debug self => _11;
+            debug rhs => _12;
             let mut _4: u32;
             let mut _5: bool;
+            let mut _13: u32;
+            let mut _14: u32;
             scope 4 (inlined core::num::<impl u32>::wrapping_shl) {
-                debug self => _1;
-                debug rhs => _2;
+                debug self => _13;
+                debug rhs => _14;
                 let mut _3: u32;
+                let mut _15: u32;
                 scope 5 {
                     scope 6 (inlined core::num::<impl u32>::unchecked_shl) {
-                        debug self => _1;
+                        debug self => _15;
                         debug rhs => _3;
                         scope 7 {
                         }

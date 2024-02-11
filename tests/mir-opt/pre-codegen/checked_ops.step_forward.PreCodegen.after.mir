@@ -4,12 +4,120 @@ fn step_forward(_1: u32, _2: usize) -> u32 {
     debug x => _1;
     debug n => _2;
     let mut _0: u32;
+    let mut _9: u32;
+    let mut _10: usize;
+    scope 1 (inlined <u32 as Step>::forward) {
+        debug start => _9;
+        debug n => _10;
+        let mut _8: u32;
+        let mut _11: &std::option::Option<u32>;
+        let mut _12: u32;
+        let mut _13: usize;
+        let mut _14: u32;
+        scope 2 {
+        }
+        scope 3 (inlined <u32 as Step>::forward_checked) {
+            debug start => _12;
+            debug n => _13;
+            let mut _15: usize;
+            let _16: u32;
+            let mut _17: u32;
+            let mut _18: u32;
+            scope 4 {
+                debug n => _16;
+                scope 6 (inlined core::num::<impl u32>::checked_add) {
+                    debug self => _17;
+                    debug rhs => _18;
+                    let mut _7: bool;
+                    let _19: u32;
+                    let _20: bool;
+                    let mut _21: u32;
+                    let mut _22: u32;
+                    scope 7 {
+                        debug a => _19;
+                        debug b => _20;
+                    }
+                    scope 8 (inlined core::num::<impl u32>::overflowing_add) {
+                        debug self => _21;
+                        debug rhs => _22;
+                        let mut _5: (u32, bool);
+                        let _6: bool;
+                        let _23: u32;
+                        scope 9 {
+                            debug a => _23;
+                            debug b => _6;
+                        }
+                    }
+                }
+            }
+            scope 5 (inlined convert::num::ptr_try_from_impls::<impl TryFrom<usize> for u32>::try_from) {
+                debug u => _15;
+                let mut _3: bool;
+                let mut _4: u32;
+            }
+        }
+        scope 10 (inlined Option::<u32>::is_none) {
+            debug self => _11;
+            scope 11 (inlined Option::<u32>::is_some) {
+                debug self => _11;
+            }
+        }
+        scope 12 (inlined core::num::<impl u32>::wrapping_add) {
+            debug self => _14;
+            debug rhs => _8;
+        }
+    }
 
     bb0: {
-        _0 = <u32 as Step>::forward(move _1, move _2) -> [return: bb1, unwind continue];
+        StorageLive(_4);
+        StorageLive(_3);
+        _3 = Gt(_2, const 4294967295_usize);
+        switchInt(move _3) -> [0: bb1, otherwise: bb5];
     }
 
     bb1: {
+        _4 = _2 as u32 (IntToInt);
+        StorageDead(_3);
+        StorageLive(_6);
+        StorageLive(_5);
+        _5 = CheckedAdd(_1, _4);
+        _6 = (_5.1: bool);
+        StorageDead(_5);
+        StorageLive(_7);
+        _7 = unlikely(move _6) -> [return: bb2, unwind unreachable];
+    }
+
+    bb2: {
+        switchInt(move _7) -> [0: bb3, otherwise: bb4];
+    }
+
+    bb3: {
+        StorageDead(_7);
+        StorageDead(_6);
+        goto -> bb7;
+    }
+
+    bb4: {
+        StorageDead(_7);
+        StorageDead(_6);
+        goto -> bb6;
+    }
+
+    bb5: {
+        StorageDead(_3);
+        goto -> bb6;
+    }
+
+    bb6: {
+        assert(!const true, "attempt to compute `{} + {}`, which would overflow", const _, const 1_u32) -> [success: bb7, unwind continue];
+    }
+
+    bb7: {
+        StorageLive(_8);
+        _8 = _2 as u32 (IntToInt);
+        _0 = Add(_1, _8);
+        StorageDead(_8);
+        StorageDead(_4);
         return;
     }
 }
