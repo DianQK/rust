@@ -37,7 +37,7 @@
           StorageLive(_1);
           _1 = const 2_i32;
 -         StorageLive(_2);
-          _2 = &mut _1;
+-         _2 = &mut _1;
 -         StorageLive(_3);
 -         StorageLive(_4);
 -         StorageLive(_5);

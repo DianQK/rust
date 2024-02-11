@@ -46,8 +46,6 @@
   
       bb0: {
           StorageLive(_2);
-          StorageLive(_3);
-          _3 = _1;
           StorageLive(_8);
           StorageLive(_9);
           StorageLive(_10);
@@ -64,11 +62,8 @@
   
       bb2: {
           _5 = ((_2 as Break).0: std::result::Result<std::convert::Infallible, i32>);
-          StorageLive(_6);
-          _6 = _5;
           _12 = ((_5 as Err).0: i32);
           _0 = Result::<i32, i32>::Err(_12);
-          StorageDead(_6);
           StorageDead(_2);
           return;
       }
@@ -77,7 +72,6 @@
           StorageDead(_10);
           StorageDead(_9);
           StorageDead(_8);
-          StorageDead(_3);
           _4 = discriminant(_2);
 -         switchInt(move _4) -> [0: bb1, 1: bb2, otherwise: bb6];
 +         goto -> bb1;
@@ -107,7 +101,6 @@
 +         StorageDead(_10);
 +         StorageDead(_9);
 +         StorageDead(_8);
-+         StorageDead(_3);
 +         _4 = discriminant(_2);
 +         goto -> bb2;
       }

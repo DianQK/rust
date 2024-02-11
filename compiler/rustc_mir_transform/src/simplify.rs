@@ -416,7 +416,7 @@ fn make_local_map<V>(
 
     for alive_index in local_decls.indices() {
         // `is_used` treats the `RETURN_PLACE` and arguments as used.
-        if !used_locals.is_used(alive_index) {
+        if !used_locals.is_used(alive_index, true) {
             continue;
         }
 
@@ -435,6 +435,8 @@ struct UsedLocals {
     increment: bool,
     arg_count: u32,
     use_count: IndexVec<Local, u32>,
+    /// Calculate the number of debug info uses.
+    noncodegen_use_count: IndexVec<Local, u32>,
 }
 
 impl UsedLocals {
@@ -444,6 +446,7 @@ impl UsedLocals {
             increment: true,
             arg_count: body.arg_count.try_into().unwrap(),
             use_count: IndexVec::from_elem(0, &body.local_decls),
+            noncodegen_use_count: IndexVec::from_elem(0, &body.local_decls),
         };
         this.visit_body(body);
         this
@@ -452,9 +455,11 @@ impl UsedLocals {
     /// Checks if local is used.
     ///
     /// Return place and arguments are always considered used.
-    fn is_used(&self, local: Local) -> bool {
+    fn is_used(&self, local: Local, include_noncodegen: bool) -> bool {
         trace!("is_used({:?}): use_count: {:?}", local, self.use_count[local]);
-        local.as_u32() <= self.arg_count || self.use_count[local] != 0
+        local.as_u32() <= self.arg_count
+            || self.use_count[local] != 0
+            || (include_noncodegen && self.noncodegen_use_count[local] != 0)
     }
 
     /// Updates the use counts to reflect the removal of given statement.
@@ -516,12 +521,22 @@ impl<'tcx> Visitor<'tcx> for UsedLocals {
         }
     }
 
-    fn visit_local(&mut self, local: Local, _ctx: PlaceContext, _location: Location) {
+    fn visit_local(&mut self, local: Local, ctx: PlaceContext, _location: Location) {
+        let is_use = ctx.is_use();
         if self.increment {
-            self.use_count[local] += 1;
+            if is_use {
+                self.use_count[local] += 1;
+            } else {
+                self.noncodegen_use_count[local] += 1;
+            }
         } else {
-            assert_ne!(self.use_count[local], 0);
-            self.use_count[local] -= 1;
+            if is_use {
+                assert_ne!(self.use_count[local], 0);
+                self.use_count[local] -= 1;
+            } else {
+                assert_ne!(self.noncodegen_use_count[local], 0);
+                self.noncodegen_use_count[local] -= 1;
+            }
         }
     }
 }
@@ -542,12 +557,17 @@ fn remove_unused_definitions_helper(used_locals: &mut UsedLocals, body: &mut Bod
             data.statements.retain(|statement| {
                 let keep = match &statement.kind {
                     StatementKind::StorageLive(local) | StatementKind::StorageDead(local) => {
-                        used_locals.is_used(*local)
+                        used_locals.is_used(*local, false)
                     }
-                    StatementKind::Assign(box (place, _)) => used_locals.is_used(place.local),
+                    StatementKind::Assign(box (place, Rvalue::Use(Operand::Constant(_)))) => {
+                        used_locals.is_used(place.local, true)
+                    }
+                    StatementKind::Assign(box (place, _)) => {
+                        used_locals.is_used(place.local, false)
+                    }
 
                     StatementKind::SetDiscriminant { ref place, .. }
-                    | StatementKind::Deinit(ref place) => used_locals.is_used(place.local),
+                    | StatementKind::Deinit(ref place) => used_locals.is_used(place.local, false),
                     StatementKind::Nop => false,
                     _ => true,
                 };

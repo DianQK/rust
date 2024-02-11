@@ -16,6 +16,9 @@ struct S {
     a: Newtype,
 }
 
+#[inline(never)]
+fn opaque(_: impl Sized) {}
+
 fn main() {
     let buf = [0i32; 4];
 
@@ -30,4 +33,5 @@ fn main() {
     // This needs to compute the field offset, but we don't know the type's alignment,
     // so this panics.
     let field = &x.a;
+    opaque(field);
 }
