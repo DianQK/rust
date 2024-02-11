@@ -1,4 +1,4 @@
-// compile-flags: -O -C no-prepopulate-passes
+// compile-flags: -O -C no-prepopulate-passes -Cdebuginfo=0
 // only-x86_64 (to not worry about usize differing)
 // ignore-debug (the debug assertions get in the way)
 
