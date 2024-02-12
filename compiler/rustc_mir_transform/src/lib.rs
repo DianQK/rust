@@ -106,6 +106,7 @@ mod shim;
 mod ssa;
 // This pass is public to allow external drivers to perform MIR cleanup
 mod check_alignment;
+mod merge_locals;
 pub mod simplify;
 mod simplify_branches;
 mod simplify_comparison_integral;
@@ -590,6 +591,7 @@ fn run_optimization_passes<'tcx>(tcx: TyCtxt<'tcx>, body: &mut Body<'tcx>) {
             &normalize_array_len::NormalizeArrayLen,
             &ref_prop::ReferencePropagation,
             &sroa::ScalarReplacementOfAggregates,
+            &merge_locals::MergeLocals,
             &match_branches::MatchBranchSimplification,
             // inst combine is after MatchBranchSimplification to clean up Ne(_1, false)
             &multiple_return_terminators::MultipleReturnTerminators,
