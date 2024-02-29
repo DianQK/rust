@@ -67,11 +67,11 @@ fn codegen_fn_attrs(tcx: TyCtxt<'_>, did: LocalDefId) -> CodegenFnAttrs {
         let hir_name = hir_symbol.as_str();
         info!("codegen_fn_attrs: {:?}", hir_name);
 
-        if hir_name == "core::str::count::do_count_chars" {
+        if hir_name == "do_count_chars" {
             info!("adding pure flag for {:?}", hir_name);
             codegen_fn_attrs.flags |= CodegenFnAttrFlags::FFI_PURE;
         }
-        if hir_name == "core::str::count::char_count_general_case" {
+        if hir_name == "char_count_general_case" {
             info!("adding pure flag for {:?}", hir_name);
             codegen_fn_attrs.flags |= CodegenFnAttrFlags::FFI_PURE;
         }
