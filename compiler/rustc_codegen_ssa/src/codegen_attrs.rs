@@ -63,6 +63,24 @@ fn codegen_fn_attrs(tcx: TyCtxt<'_>, did: LocalDefId) -> CodegenFnAttrs {
         codegen_fn_attrs.flags |= CodegenFnAttrFlags::TRACK_CALLER;
     }
 
+    if let Some(hir_symbol) = tcx.hir().opt_name(tcx.local_def_id_to_hir_id(did)) {
+        let hir_name = hir_symbol.as_str();
+        info!("codegen_fn_attrs: {:?}", hir_name);
+
+        if hir_name == "core::str::count::do_count_chars" {
+            info!("adding pure flag for {:?}", hir_name);
+            codegen_fn_attrs.flags |= CodegenFnAttrFlags::FFI_PURE;
+        }
+        if hir_name == "core::str::count::char_count_general_case" {
+            info!("adding pure flag for {:?}", hir_name);
+            codegen_fn_attrs.flags |= CodegenFnAttrFlags::FFI_PURE;
+        }
+        if hir_name == "cccccc_char_count_general_case" {
+            info!("adding pure flag for {:?}", hir_name);
+            codegen_fn_attrs.flags |= CodegenFnAttrFlags::FFI_PURE;
+        }
+    }
+
     // When `no_builtins` is applied at the crate level, we should add the
     // `no-builtins` attribute to each function to ensure it takes effect in LTO.
     let crate_attrs = tcx.hir().attrs(rustc_hir::CRATE_HIR_ID);

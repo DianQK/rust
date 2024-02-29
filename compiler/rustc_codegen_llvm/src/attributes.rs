@@ -295,6 +295,7 @@ pub fn from_fn_attrs<'ll, 'tcx>(
     instance: ty::Instance<'tcx>,
 ) {
     let codegen_fn_attrs = cx.tcx.codegen_fn_attrs(instance.def_id());
+    info!("from_fn_attrs: {:?}", cx.tcx.def_path_str(instance.def_id()));
 
     let mut to_add = SmallVec::<[_; 16]>::new();
 
