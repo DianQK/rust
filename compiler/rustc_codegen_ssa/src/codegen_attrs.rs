@@ -48,6 +48,15 @@ fn linkage_by_name(tcx: TyCtxt<'_>, def_id: LocalDefId, name: &str) -> Linkage {
     }
 }
 
+fn optimized_codegen_fn_attrs(tcx: TyCtxt<'_>, did: LocalDefId) -> CodegenFnAttrs {
+    let mut codegen_fn_attrs = CodegenFnAttrs::new();
+    if let Some(hir_symbol) = tcx.hir().opt_name(tcx.local_def_id_to_hir_id(did)) {
+        let hir_name = hir_symbol.as_str();
+        info!("optimized_codegen_fn_attrs: {:?}", hir_name);
+    }
+    codegen_fn_attrs
+}
+
 fn codegen_fn_attrs(tcx: TyCtxt<'_>, did: LocalDefId) -> CodegenFnAttrs {
     if cfg!(debug_assertions) {
         let def_kind = tcx.def_kind(did);
@@ -709,5 +718,10 @@ fn check_link_name_xor_ordinal(
 }
 
 pub fn provide(providers: &mut Providers) {
-    *providers = Providers { codegen_fn_attrs, should_inherit_track_caller, ..*providers };
+    *providers = Providers {
+        codegen_fn_attrs,
+        should_inherit_track_caller,
+        optimized_codegen_fn_attrs,
+        ..*providers
+    };
 }

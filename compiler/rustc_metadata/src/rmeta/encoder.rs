@@ -1650,7 +1650,7 @@ impl<'a, 'tcx> EncodeContext<'a, 'tcx> {
             if encode_opt {
                 let mir = tcx.optimized_mir(def_id);
                 record!(self.tables.optimized_mir[def_id.to_def_id()] <- mir);
-                // TODO(DianQK): add optimized_codegen_fn_attrs
+                record!(self.tables.optimized_codegen_fn_attrs[def_id.to_def_id()] <- tcx.optimized_codegen_fn_attrs(def_id));
                 self.tables
                     .cross_crate_inlinable
                     .set(def_id.to_def_id().index, self.tcx.cross_crate_inlinable(def_id));

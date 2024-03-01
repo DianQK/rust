@@ -408,6 +408,8 @@ pub struct Body<'tcx> {
     /// If `-Cinstrument-coverage` is not active, or if an individual function
     /// is not eligible for coverage, then this should always be `None`.
     pub function_coverage_info: Option<Box<coverage::FunctionCoverageInfo>>,
+
+    pub fn_attrs: FnAttrs,
 }
 
 impl<'tcx> Body<'tcx> {
@@ -449,6 +451,7 @@ impl<'tcx> Body<'tcx> {
             injection_phase: None,
             tainted_by_errors,
             function_coverage_info: None,
+            fn_attrs: FnAttrs::default(),
         };
         body.is_polymorphic = body.has_non_region_param();
         body
@@ -478,6 +481,7 @@ impl<'tcx> Body<'tcx> {
             injection_phase: None,
             tainted_by_errors: None,
             function_coverage_info: None,
+            fn_attrs: FnAttrs::default(),
         };
         body.is_polymorphic = body.has_non_region_param();
         body
@@ -1707,6 +1711,38 @@ impl DefLocation {
                     && dominators.dominates(target, location.block)
             }
         }
+    }
+}
+
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+#[derive(HashStable, TyEncodable, TyDecodable, TypeFoldable, TypeVisitable)]
+pub struct FnAttrs {
+    pub memory_effect: Option<MemoryEffect>,
+}
+
+#[derive(Copy, Clone, Debug, Eq, PartialEq)]
+#[derive(HashStable, TyEncodable, TyDecodable, TypeFoldable, TypeVisitable)]
+pub enum MemoryEffect {
+    None,
+    Read,
+    Write,
+}
+
+impl MemoryEffect {
+    pub const BOTTOM: MemoryEffect = MemoryEffect::None;
+    pub const TOP: MemoryEffect = MemoryEffect::Write;
+
+    pub fn join(&mut self, other: Self) -> bool {
+        if *self == other {
+            return false;
+        }
+        *self = match (*self, other) {
+            (MemoryEffect::Read, MemoryEffect::None)
+            | (MemoryEffect::None, MemoryEffect::Read)
+            | (MemoryEffect::Read, MemoryEffect::Read) => MemoryEffect::Read,
+            _ => MemoryEffect::Write,
+        };
+        true
     }
 }
 
