@@ -297,8 +297,12 @@ pub fn from_fn_attrs<'ll, 'tcx>(
     let codegen_fn_attrs = cx.tcx.codegen_fn_attrs(instance.def_id());
     let mut codegen_fn_attrs = codegen_fn_attrs.clone();
     let optimized_codegen_fn_attrs = cx.tcx.optimized_codegen_fn_attrs(instance.def_id());
+    info!(
+        "from_fn_attrs opt!: {:?} '{:?}'",
+        cx.tcx.def_path_str(instance.def_id()),
+        optimized_codegen_fn_attrs.flags
+    );
     codegen_fn_attrs.flags |= optimized_codegen_fn_attrs.flags;
-    info!("from_fn_attrs: {:?}", cx.tcx.def_path_str(instance.def_id()));
 
     let mut to_add = SmallVec::<[_; 16]>::new();
 
@@ -361,12 +365,15 @@ pub fn from_fn_attrs<'ll, 'tcx>(
         to_add.push(AttributeKind::Cold.create_attr(cx.llcx));
     }
     if codegen_fn_attrs.flags.contains(CodegenFnAttrFlags::FFI_PURE)
-        && codegen_fn_attrs.flags.contains(CodegenFnAttrFlags::MEMORY_EFFECTS_READ_ONLY)
+        || codegen_fn_attrs.flags.contains(CodegenFnAttrFlags::MEMORY_EFFECTS_READ_ONLY)
     {
         info!("Adding ReadOnly");
         to_add.push(MemoryEffects::ReadOnly.create_attr(cx.llcx));
     }
-    if codegen_fn_attrs.flags.contains(CodegenFnAttrFlags::FFI_CONST) {
+    if codegen_fn_attrs.flags.contains(CodegenFnAttrFlags::FFI_CONST)
+        || codegen_fn_attrs.flags.contains(CodegenFnAttrFlags::MEMORY_EFFECTS_NONE)
+    {
+        info!("Adding MemoryEffects::None");
         to_add.push(MemoryEffects::None.create_attr(cx.llcx));
     }
     if codegen_fn_attrs.flags.contains(CodegenFnAttrFlags::NAKED) {

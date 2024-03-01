@@ -1384,6 +1384,9 @@ impl<'a, 'tcx> EncodeContext<'a, 'tcx> {
                 info!("metadata: encoding codegen attributes for {:?}", def_id);
                 record!(self.tables.codegen_fn_attrs[def_id] <- self.tcx.codegen_fn_attrs(def_id));
             }
+            if tcx.sess.opts.output_types.should_codegen() {
+                record!(self.tables.optimized_codegen_fn_attrs[def_id] <- tcx.optimized_codegen_fn_attrs(def_id));
+            }
             if should_encode_visibility(def_kind) {
                 let vis =
                     self.tcx.local_visibility(local_id).map_id(|def_id| def_id.local_def_index);
@@ -1650,7 +1653,6 @@ impl<'a, 'tcx> EncodeContext<'a, 'tcx> {
             if encode_opt {
                 let mir = tcx.optimized_mir(def_id);
                 record!(self.tables.optimized_mir[def_id.to_def_id()] <- mir);
-                record!(self.tables.optimized_codegen_fn_attrs[def_id.to_def_id()] <- tcx.optimized_codegen_fn_attrs(def_id));
                 self.tables
                     .cross_crate_inlinable
                     .set(def_id.to_def_id().index, self.tcx.cross_crate_inlinable(def_id));

@@ -7,6 +7,7 @@ use rustc_hir::def_id::{DefId, LocalDefId, LOCAL_CRATE};
 use rustc_hir::{lang_items, weak_lang_items::WEAK_LANG_ITEMS, LangItem};
 use rustc_middle::middle::codegen_fn_attrs::{CodegenFnAttrFlags, CodegenFnAttrs};
 use rustc_middle::mir::mono::Linkage;
+use rustc_middle::mir::MemoryEffect;
 use rustc_middle::query::Providers;
 use rustc_middle::ty::{self as ty, TyCtxt};
 use rustc_session::{lint, parse::feature_err};
@@ -50,6 +51,40 @@ fn linkage_by_name(tcx: TyCtxt<'_>, def_id: LocalDefId, name: &str) -> Linkage {
 
 fn optimized_codegen_fn_attrs(tcx: TyCtxt<'_>, did: LocalDefId) -> CodegenFnAttrs {
     let mut codegen_fn_attrs = CodegenFnAttrs::new();
+    if !tcx.is_mir_available(did) {
+        return codegen_fn_attrs;
+    }
+    match tcx.def_kind(did) {
+        DefKind::AssocFn | DefKind::Fn | DefKind::Closure => {}
+        // The others don't have MIR.
+        _ => {
+            return codegen_fn_attrs;
+        }
+    }
+    match tcx.hir().body_const_context(did) {
+        // Run the `mir_for_ctfe` query, which depends on `mir_drops_elaborated_and_const_checked`
+        // which we are going to steal below. Thus we need to run `mir_for_ctfe` first, so it
+        // computes and caches its result.
+        Some(hir::ConstContext::ConstFn) => {
+            // FIXME: `#![feature(const_mut_refs)]`
+            codegen_fn_attrs.flags |= CodegenFnAttrFlags::MEMORY_EFFECTS_NONE;
+        }
+        None => {
+            let mir = tcx.optimized_mir(did);
+            if let Some(memory_effect) = mir.fn_attrs.memory_effect {
+                match memory_effect {
+                    MemoryEffect::None => {
+                        codegen_fn_attrs.flags |= CodegenFnAttrFlags::MEMORY_EFFECTS_NONE;
+                    }
+                    MemoryEffect::Read => {
+                        codegen_fn_attrs.flags |= CodegenFnAttrFlags::MEMORY_EFFECTS_READ_ONLY;
+                    }
+                    MemoryEffect::Write => {}
+                }
+            }
+        }
+        Some(other) => {}
+    }
     if let Some(hir_symbol) = tcx.hir().opt_name(tcx.local_def_id_to_hir_id(did)) {
         let hir_name = hir_symbol.as_str();
         info!("optimized_codegen_fn_attrs: {:?}", hir_name);
