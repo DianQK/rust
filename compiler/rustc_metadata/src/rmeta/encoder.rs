@@ -1381,6 +1381,7 @@ impl<'a, 'tcx> EncodeContext<'a, 'tcx> {
                 record!(self.tables.def_ident_span[def_id] <- ident_span);
             }
             if def_kind.has_codegen_attrs() {
+                info!("metadata: encoding codegen attributes for {:?}", def_id);
                 record!(self.tables.codegen_fn_attrs[def_id] <- self.tcx.codegen_fn_attrs(def_id));
             }
             if should_encode_visibility(def_kind) {
@@ -1647,7 +1648,9 @@ impl<'a, 'tcx> EncodeContext<'a, 'tcx> {
 
             debug!("EntryBuilder::encode_mir({:?})", def_id);
             if encode_opt {
-                record!(self.tables.optimized_mir[def_id.to_def_id()] <- tcx.optimized_mir(def_id));
+                let mir = tcx.optimized_mir(def_id);
+                record!(self.tables.optimized_mir[def_id.to_def_id()] <- mir);
+                // TODO(DianQK): add optimized_codegen_fn_attrs
                 self.tables
                     .cross_crate_inlinable
                     .set(def_id.to_def_id().index, self.tcx.cross_crate_inlinable(def_id));

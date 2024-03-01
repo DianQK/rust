@@ -357,7 +357,9 @@ pub fn from_fn_attrs<'ll, 'tcx>(
     if codegen_fn_attrs.flags.contains(CodegenFnAttrFlags::COLD) {
         to_add.push(AttributeKind::Cold.create_attr(cx.llcx));
     }
-    if codegen_fn_attrs.flags.contains(CodegenFnAttrFlags::FFI_PURE) {
+    if codegen_fn_attrs.flags.contains(CodegenFnAttrFlags::FFI_PURE)
+        && codegen_fn_attrs.flags.contains(CodegenFnAttrFlags::MEMORY_EFFECTS_READ_ONLY)
+    {
         info!("Adding ReadOnly");
         to_add.push(MemoryEffects::ReadOnly.create_attr(cx.llcx));
     }

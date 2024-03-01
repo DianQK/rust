@@ -70,19 +70,19 @@ fn codegen_fn_attrs(tcx: TyCtxt<'_>, did: LocalDefId) -> CodegenFnAttrs {
     if let Some(hir_symbol) = tcx.hir().opt_name(tcx.local_def_id_to_hir_id(did)) {
         let hir_name = hir_symbol.as_str();
         info!("codegen_fn_attrs: {:?}", hir_name);
-    //
-    //     if hir_name == "do_count_chars" {
-    //         info!("adding pure flag for {:?}", hir_name);
-    //         codegen_fn_attrs.flags |= CodegenFnAttrFlags::FFI_PURE;
-    //     }
-    //     if hir_name == "char_count_general_case" {
-    //         info!("adding pure flag for {:?}", hir_name);
-    //         codegen_fn_attrs.flags |= CodegenFnAttrFlags::FFI_PURE;
-    //     }
-    //     if hir_name == "cccccc_char_count_general_case" {
-    //         info!("adding pure flag for {:?}", hir_name);
-    //         codegen_fn_attrs.flags |= CodegenFnAttrFlags::FFI_PURE;
-    //     }
+        //
+        //     if hir_name == "do_count_chars" {
+        //         info!("adding pure flag for {:?}", hir_name);
+        //         codegen_fn_attrs.flags |= CodegenFnAttrFlags::FFI_PURE;
+        //     }
+        //     if hir_name == "char_count_general_case" {
+        //         info!("adding pure flag for {:?}", hir_name);
+        //         codegen_fn_attrs.flags |= CodegenFnAttrFlags::FFI_PURE;
+        //     }
+        //     if hir_name == "cccccc_char_count_general_case" {
+        //         info!("adding pure flag for {:?}", hir_name);
+        //         codegen_fn_attrs.flags |= CodegenFnAttrFlags::FFI_PURE;
+        //     }
     }
 
     // When `no_builtins` is applied at the crate level, we should add the
@@ -125,8 +125,8 @@ fn codegen_fn_attrs(tcx: TyCtxt<'_>, did: LocalDefId) -> CodegenFnAttrs {
         match name {
             sym::cold => codegen_fn_attrs.flags |= CodegenFnAttrFlags::COLD,
             sym::rustc_allocator => codegen_fn_attrs.flags |= CodegenFnAttrFlags::ALLOCATOR,
-            sym::ffi_pure => codegen_fn_attrs.flags |= CodegenFnAttrFlags::FFI_PURE,
-            sym::ffi_const => codegen_fn_attrs.flags |= CodegenFnAttrFlags::FFI_CONST,
+            sym::ffi_pure => codegen_fn_attrs.flags |= CodegenFnAttrFlags::MEMORY_EFFECTS_READ_ONLY,
+            sym::ffi_const => codegen_fn_attrs.flags |= CodegenFnAttrFlags::MEMORY_EFFECTS_NONE,
             sym::rustc_nounwind => codegen_fn_attrs.flags |= CodegenFnAttrFlags::NEVER_UNWIND,
             sym::rustc_reallocator => codegen_fn_attrs.flags |= CodegenFnAttrFlags::REALLOCATOR,
             sym::rustc_deallocator => codegen_fn_attrs.flags |= CodegenFnAttrFlags::DEALLOCATOR,

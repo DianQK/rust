@@ -1222,6 +1222,13 @@ rustc_queries! {
         separate_provide_extern
     }
 
+    query optimized_codegen_fn_attrs(def_id: DefId) -> &'tcx CodegenFnAttrs {
+        desc { |tcx| "computing optimized codegen attributes of `{}`", tcx.def_path_str(def_id) }
+        arena_cache
+        cache_on_disk_if { def_id.is_local() }
+        separate_provide_extern
+    }
+
     query asm_target_features(def_id: DefId) -> &'tcx FxIndexSet<Symbol> {
         desc { |tcx| "computing target features for inline asm of `{}`", tcx.def_path_str(def_id) }
     }
