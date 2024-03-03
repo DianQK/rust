@@ -297,11 +297,7 @@ pub fn from_fn_attrs<'ll, 'tcx>(
     let codegen_fn_attrs = cx.tcx.codegen_fn_attrs(instance.def_id());
     let mut codegen_fn_attrs = codegen_fn_attrs.clone();
     let optimized_codegen_fn_attrs = cx.tcx.optimized_codegen_fn_attrs(instance.def_id());
-    info!(
-        "from_fn_attrs opt!: {:?} '{:?}'",
-        cx.tcx.def_path_str(instance.def_id()),
-        optimized_codegen_fn_attrs.flags
-    );
+    info!("from_fn_attrs opt!: {:?} '{:?}'", instance.def_id(), optimized_codegen_fn_attrs.flags);
     codegen_fn_attrs.flags |= optimized_codegen_fn_attrs.flags;
 
     let mut to_add = SmallVec::<[_; 16]>::new();

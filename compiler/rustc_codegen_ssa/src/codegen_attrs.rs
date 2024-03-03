@@ -54,6 +54,7 @@ fn optimized_codegen_fn_attrs(tcx: TyCtxt<'_>, did: LocalDefId) -> CodegenFnAttr
     if !tcx.is_mir_available(did) {
         return codegen_fn_attrs;
     }
+    info!("optimized_codegen_fn_attrs: {:?}", did.to_def_id());
     match tcx.def_kind(did) {
         DefKind::AssocFn | DefKind::Fn | DefKind::Closure => {}
         // The others don't have MIR.
@@ -65,11 +66,7 @@ fn optimized_codegen_fn_attrs(tcx: TyCtxt<'_>, did: LocalDefId) -> CodegenFnAttr
         // Run the `mir_for_ctfe` query, which depends on `mir_drops_elaborated_and_const_checked`
         // which we are going to steal below. Thus we need to run `mir_for_ctfe` first, so it
         // computes and caches its result.
-        Some(hir::ConstContext::ConstFn) => {
-            // FIXME: `#![feature(const_mut_refs)]`
-            codegen_fn_attrs.flags |= CodegenFnAttrFlags::MEMORY_EFFECTS_NONE;
-        }
-        None => {
+        Some(hir::ConstContext::ConstFn) | None => {
             let mir = tcx.optimized_mir(did);
             if let Some(memory_effect) = mir.fn_attrs.memory_effect {
                 match memory_effect {
@@ -110,24 +107,6 @@ fn codegen_fn_attrs(tcx: TyCtxt<'_>, did: LocalDefId) -> CodegenFnAttrs {
     // if tcx.is_mir_available(did) {
     //     let mir = tcx.optimized_mir(did);
     // }
-
-    if let Some(hir_symbol) = tcx.hir().opt_name(tcx.local_def_id_to_hir_id(did)) {
-        let hir_name = hir_symbol.as_str();
-        info!("codegen_fn_attrs: {:?}", hir_name);
-        //
-        //     if hir_name == "do_count_chars" {
-        //         info!("adding pure flag for {:?}", hir_name);
-        //         codegen_fn_attrs.flags |= CodegenFnAttrFlags::FFI_PURE;
-        //     }
-        //     if hir_name == "char_count_general_case" {
-        //         info!("adding pure flag for {:?}", hir_name);
-        //         codegen_fn_attrs.flags |= CodegenFnAttrFlags::FFI_PURE;
-        //     }
-        //     if hir_name == "cccccc_char_count_general_case" {
-        //         info!("adding pure flag for {:?}", hir_name);
-        //         codegen_fn_attrs.flags |= CodegenFnAttrFlags::FFI_PURE;
-        //     }
-    }
 
     // When `no_builtins` is applied at the crate level, we should add the
     // `no-builtins` attribute to each function to ensure it takes effect in LTO.
