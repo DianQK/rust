@@ -45,7 +45,7 @@ fn annotate<'tcx>(tcx: TyCtxt<'tcx>, body: &mut Body<'tcx>) -> Option<MemoryEffe
     // let mut updater = MemoryEffectUpdater { value: memory_effect, tcx };
     // updater.visit_body(body);
     // body.fn_attrs.memory_effect = Some(updater.value);
-    annotator.process(body);
+    annotator.process(body, body);
     info!("Memory effect for {:?} is {:?}", body.source, annotator.value);
     Some(annotator.value)
 }
@@ -58,20 +58,31 @@ struct AttributeAnnotator<'tcx> {
 }
 
 impl<'tcx> AttributeAnnotator<'tcx> {
-    fn process(&mut self, body: &mut Body<'tcx>) {
+    fn process(&mut self, caller_body: &Body<'tcx>, body: &Body<'tcx>) {
+        info!("Processing {:?}", body.source);
         for bb_data in body.basic_blocks.iter() {
+            info!("bb_data: {:?}", bb_data);
             if bb_data.is_cleanup {
                 continue;
             }
 
-            let Some(callsite) = self.resolve_callsite(body, bb_data) else {
-                info!("No callsite found for {:?}", bb_data);
-                self.value.join(MemoryEffect::Write);
-                return;
-            };
+            if let TerminatorKind::Call { ref func, fn_span, .. } = bb_data.terminator().kind {
+                info!("func: {:?}", func);
+                let Some(callsite) = self.resolve_callsite(caller_body, bb_data) else {
+                    warn!("resolve_callsite failed");
+                    self.value.join(MemoryEffect::Write);
+                    return;
+                };
 
-            if let InstanceDef::Intrinsic(..) = callsite.def {
-                break;
+                if let InstanceDef::Intrinsic(..) = callsite.def {
+                    continue;
+                }
+                info!("callsite: {:?}", callsite);
+
+                let callee_mir = self.tcx.instance_mir(callsite.def);
+                // info!("callee_mir: {:?}", callee_mir);
+                self.process(caller_body, callee_mir);
+                continue;
             }
         }
     }
