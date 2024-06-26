@@ -23,12 +23,12 @@
 #include "llvm/Object/ObjectFile.h"
 #include "llvm/Passes/PassBuilder.h"
 #include "llvm/Passes/PassPlugin.h"
+#include "llvm/Transforms/IPO/AlwaysInliner.h"
 #include "llvm/Passes/StandardInstrumentations.h"
 #include "llvm/Support/CBindingWrapping.h"
 #include "llvm/Support/FileSystem.h"
 #include "llvm/Support/VirtualFileSystem.h"
 #include "llvm/Target/TargetMachine.h"
-#include "llvm/Transforms/IPO/AlwaysInliner.h"
 #include "llvm/Transforms/IPO/FunctionImport.h"
 #include "llvm/Transforms/IPO/Internalize.h"
 #include "llvm/Transforms/IPO/LowerTypeTests.h"
@@ -429,10 +429,10 @@ extern "C" LLVMTargetMachineRef LLVMRustCreateTargetMachine(
   TargetOptions Options = codegen::InitTargetOptionsFromCodeGenFlags(Trip);
 
   Options.FloatABIType = FloatABI::Default;
-  if (UseSoftFloat) {
+  if (UseSoftFloat)     {
     Options.FloatABIType = FloatABI::Soft;
   }
-  Options.DataSections = DataSections;
+        Options.DataSections = DataSections;
   Options.FunctionSections = FunctionSections;
   Options.UniqueSectionNames = UniqueSectionNames;
   Options.MCOptions.AsmVerbose = AsmComments;
