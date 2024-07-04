@@ -226,6 +226,20 @@ enum EnumAi16 {
     C = -3,
 }
 
+// We cannot transform it, even though `-1i8` and `255i16` are the same in terms of bits,
+// what we actually require is that they are considered equal in a signed comparison,
+// after sign-extending to the larger type.
+// EMIT_MIR matches_reduce_branches.match_i8_i16_failed_2.MatchBranchSimplification.diff
+fn match_i8_i16_failed_2(i: EnumAi8) -> i16 {
+    // CHECK-LABEL: fn match_i8_i16_failed_2(
+    // CHECK: switchInt
+    match i {
+        EnumAi8::A => 255,
+        EnumAi8::B => 2,
+        EnumAi8::C => -3,
+    }
+}
+
 // EMIT_MIR matches_reduce_branches.match_i16_i8.MatchBranchSimplification.diff
 fn match_i16_i8(i: EnumAi16) -> i8 {
     // CHECK-LABEL: fn match_i16_i8(
@@ -270,6 +284,7 @@ fn main() {
     let _ = match_u8_u16_2(EnumBu8::A);
     let _ = match_i8_i16(EnumAi8::A);
     let _ = match_i8_i16_failed(EnumAi8::A);
+    let _ = match_i8_i16_failed_2(EnumAi8::A);
     let _ = match_i8_i16(EnumAi8::A);
     let _ = match_i16_i8(EnumAi16::A);
     let _ = match_i128_u128(EnumAi128::A);
