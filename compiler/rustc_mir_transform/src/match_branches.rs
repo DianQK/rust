@@ -1,9 +1,10 @@
 use rustc_index::IndexSlice;
 use rustc_middle::mir::patch::MirPatch;
 use rustc_middle::mir::*;
+use rustc_middle::ty::layout::{IntegerExt, TyAndLayout};
 use rustc_middle::ty::{ParamEnv, ScalarInt, Ty, TyCtxt};
-use rustc_target::abi::Size;
-use std::cmp::Ordering;
+use rustc_target::abi::Integer;
+use rustc_type_ir::TyKind::*;
 use std::iter;
 
 use super::simplify::simplify_cfg;
@@ -263,28 +264,25 @@ impl<'tcx> SimplifyMatch<'tcx> for SimplifyToIf {
 
 /// Check if the cast constant using `IntToInt` is equal to the target constant.
 fn can_cast(
-    from_val: impl Into<u128>,
-    from_size: Size,
+    tcx: TyCtxt<'_>,
+    src_val: impl Into<u128>,
+    src_layout: TyAndLayout<'_>,
+    cast_ty: Ty<'_>,
     target_scalar: ScalarInt,
-    from_is_signed: bool,
 ) -> bool {
-    let from_val = from_val.into();
-    let from_scalar = ScalarInt::try_from_uint(from_val, from_size).unwrap();
-    let to_size = target_scalar.size();
-    let cast_scalar = match to_size.cmp(&from_size) {
-        // Truncate to the target size.
-        Ordering::Less => ScalarInt::truncate_from_uint(from_val, to_size).0,
-        Ordering::Equal => from_scalar,
-        Ordering::Greater => {
-            if from_is_signed {
-                // Extend to the target size using sext.
-                ScalarInt::try_from_int(from_scalar.to_int(from_size), to_size).unwrap()
-            } else {
-                // Extend to the target size using zext.
-                ScalarInt::try_from_uint(from_scalar.to_uint(from_size), to_size).unwrap()
-            }
-        }
+    let from_scalar = ScalarInt::try_from_uint(src_val.into(), src_layout.size).unwrap();
+    let v = match src_layout.ty.kind() {
+        Uint(_) => from_scalar.to_uint(src_layout.size),
+        Int(_) => from_scalar.to_int(src_layout.size) as u128,
+        _ => unreachable!("invalid int"),
     };
+    let size = match *cast_ty.kind() {
+        Int(t) => Integer::from_int_ty(&tcx, t).size(),
+        Uint(t) => Integer::from_uint_ty(&tcx, t).size(),
+        _ => unreachable!("invalid int"),
+    };
+    let v = size.truncate(v);
+    let cast_scalar = ScalarInt::try_from_uint(v, size).unwrap();
     cast_scalar == target_scalar
 }
 
@@ -387,7 +385,7 @@ impl<'tcx> SimplifyMatch<'tcx> for SimplifyToExp {
             return None;
         }
 
-        let discr_size = tcx.layout_of(param_env.and(discr_ty)).unwrap().size;
+        let discr_layout = tcx.layout_of(param_env.and(discr_ty)).unwrap();
         let first_stmts = &bbs[first_target].statements;
         let (second_case_val, second_target) = target_iter.next().unwrap();
         let second_stmts = &bbs[second_target].statements;
@@ -422,13 +420,19 @@ impl<'tcx> SimplifyMatch<'tcx> for SimplifyToExp {
                         // Enum variants can also be simplified to an assignment statement,
                         // if we can use `IntToInt` cast to get an equal value.
                         (Some(f), Some(s))
-                            if (can_cast(first_case_val, discr_size, f, discr_ty.is_signed())
-                                && can_cast(
-                                    second_case_val,
-                                    discr_size,
-                                    s,
-                                    discr_ty.is_signed(),
-                                )) =>
+                            if (can_cast(
+                                tcx,
+                                first_case_val,
+                                discr_layout,
+                                f_c.const_.ty(),
+                                f,
+                            ) && can_cast(
+                                tcx,
+                                second_case_val,
+                                discr_layout,
+                                f_c.const_.ty(),
+                                s,
+                            )) =>
                         {
                             ExpectedTransformKind::Cast { place: lhs_f, ty: f_c.const_.ty() }
                         }
@@ -465,7 +469,7 @@ impl<'tcx> SimplifyMatch<'tcx> for SimplifyToExp {
                     ) if let Some(f) = s_c.const_.try_eval_scalar_int(tcx, param_env)
                         && lhs_f == lhs_s
                         && s_c.const_.ty() == f_ty
-                        && can_cast(other_val, discr_size, f, discr_ty.is_signed()) => {}
+                        && can_cast(tcx, other_val, discr_layout, f_ty, f) => {}
                     _ => return None,
                 }
             }
