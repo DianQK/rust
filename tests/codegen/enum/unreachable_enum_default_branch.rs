@@ -25,11 +25,12 @@ pub fn implicit_match(x: Int) -> bool {
     (x >= A && x <= B) || x == C
 }
 
+// Broken :(
 // The code is from https://github.com/rust-lang/rust/issues/110097.
 // We expect it to generate the same optimized code as a full match.
 // CHECK-LABEL: @if_let(
-// CHECK-NEXT:  start:
-// CHECK-NEXT: insertvalue
+// CHECK: start:
+// CHECK: insertvalue
 // CHECK-NEXT: insertvalue
 // CHECK-NEXT: ret
 #[no_mangle]

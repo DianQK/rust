@@ -876,14 +876,38 @@ impl<'body, 'tcx> VnState<'body, 'tcx> {
         None
     }
 
+    fn try_as_place_elem(
+        &mut self,
+        proj: ProjectionElem<VnIndex, Ty<'tcx>>,
+        loc: Location,
+    ) -> Option<PlaceElem<'tcx>> {
+        Some(match proj {
+            ProjectionElem::Deref => ProjectionElem::Deref,
+            ProjectionElem::Field(idx, ty) => ProjectionElem::Field(idx, ty),
+            ProjectionElem::Index(idx) => {
+                return self.try_as_local(idx, loc).map(|l| ProjectionElem::Index(l));
+            }
+            ProjectionElem::ConstantIndex { offset, min_length, from_end } => {
+                ProjectionElem::ConstantIndex { offset, min_length, from_end }
+            }
+            ProjectionElem::Subslice { from, to, from_end } => {
+                ProjectionElem::Subslice { from, to, from_end }
+            }
+            ProjectionElem::Downcast(symbol, idx) => ProjectionElem::Downcast(symbol, idx),
+            ProjectionElem::OpaqueCast(idx) => ProjectionElem::OpaqueCast(idx),
+            ProjectionElem::Subtype(idx) => ProjectionElem::Subtype(idx),
+        })
+    }
+
     fn simplify_aggregate(
         &mut self,
         rvalue: &mut Rvalue<'tcx>,
         location: Location,
     ) -> Option<VnIndex> {
+        let tcx = self.tcx;
+        let rvalue_ty = rvalue.ty(self.local_decls, tcx);
         let Rvalue::Aggregate(box ref kind, ref mut field_ops) = *rvalue else { bug!() };
 
-        let tcx = self.tcx;
         if field_ops.is_empty() {
             let is_zst = match *kind {
                 AggregateKind::Array(..)
@@ -898,8 +922,7 @@ impl<'body, 'tcx> VnState<'body, 'tcx> {
             };
 
             if is_zst {
-                let ty = rvalue.ty(self.local_decls, tcx);
-                return self.insert_constant(Const::zero_sized(ty));
+                return self.insert_constant(Const::zero_sized(rvalue_ty));
             }
         }
 
@@ -933,6 +956,58 @@ impl<'body, 'tcx> VnState<'body, 'tcx> {
             .map(|op| self.simplify_operand(op, location).or_else(|| self.new_opaque()))
             .collect();
         let mut fields = fields?;
+
+        if let AggregateTy::Def(_, _) = &mut ty
+            && !fields.is_empty()
+        {
+            // All fields must correspond one-to-one and come from the same aggregate value.
+            if let Value::Projection(copy_from_value, _) = *self.get(fields[0])
+                && fields.iter().enumerate().all(|(index, &v)| {
+                    if let Value::Projection(pointer, ProjectionElem::Field(from_index, _)) =
+                        *self.get(v)
+                        && copy_from_value == pointer
+                        && from_index.index() == index
+                    {
+                        return true;
+                    }
+                    false
+                })
+            {
+                let mut projection = SmallVec::<[PlaceElem<'tcx>; 1]>::new();
+                let mut copy_from_local_value = copy_from_value;
+                loop {
+                    if let Some(local) = self.try_as_local(copy_from_local_value, location) {
+                        projection.reverse();
+                        if let Some(ProjectionElem::Downcast(_, _)) = projection.last() {
+                            projection.pop();
+                        }
+                        let place =
+                            Place { local, projection: tcx.mk_place_elems(projection.as_slice()) };
+                        if rvalue_ty == place.ty(self.local_decls, tcx).ty {
+                            self.reused_locals.insert(local);
+                            *rvalue = Rvalue::Use(Operand::Copy(place));
+                            return Some(copy_from_value);
+                        }
+                        break;
+                    } else if let Value::Projection(pointer, proj) =
+                        *self.get(copy_from_local_value)
+                        && let Some(proj) = self.try_as_place_elem(proj, location)
+                    {
+                        // The copied variant must be identical.
+                        if let ProjectionElem::Downcast(_, read_variant) = proj
+                            && projection.is_empty()
+                            && variant_index != read_variant
+                        {
+                            break;
+                        }
+                        projection.push(proj);
+                        copy_from_local_value = pointer;
+                    } else {
+                        break;
+                    }
+                }
+            }
+        }
 
         if let AggregateTy::RawPtr { data_pointer_ty, output_pointer_ty } = &mut ty {
             let mut was_updated = false;
