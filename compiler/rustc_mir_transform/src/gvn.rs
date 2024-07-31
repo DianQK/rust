@@ -863,9 +863,10 @@ impl<'body, 'tcx> VnState<'body, 'tcx> {
         rvalue: &mut Rvalue<'tcx>,
         location: Location,
     ) -> Option<VnIndex> {
+        let tcx = self.tcx;
+        let rvalue_ty = rvalue.ty(self.local_decls, tcx);
         let Rvalue::Aggregate(box ref kind, ref mut field_ops) = *rvalue else { bug!() };
 
-        let tcx = self.tcx;
         if field_ops.is_empty() {
             let is_zst = match *kind {
                 AggregateKind::Array(..)
@@ -880,8 +881,7 @@ impl<'body, 'tcx> VnState<'body, 'tcx> {
             };
 
             if is_zst {
-                let ty = rvalue.ty(self.local_decls, tcx);
-                return self.insert_constant(Const::zero_sized(ty));
+                return self.insert_constant(Const::zero_sized(rvalue_ty));
             }
         }
 
@@ -915,6 +915,55 @@ impl<'body, 'tcx> VnState<'body, 'tcx> {
             .map(|op| self.simplify_operand(op, location).or_else(|| self.new_opaque()))
             .collect();
         let mut fields = fields?;
+
+        if let AggregateTy::Def(_, _) = &mut ty
+            && !fields.is_empty()
+        {
+            let copy_from = if let Value::Projection(first_pointer, ProjectionElem::Field(_, _)) =
+                *self.get(fields[0])
+            {
+                let mut copy_from_value = first_pointer;
+                while let Value::Projection(pointer, ProjectionElem::Deref) =
+                    *self.get(copy_from_value)
+                {
+                    copy_from_value = pointer;
+                }
+                if let Some(local) = self.try_as_local(copy_from_value, location) {
+                    let from_ty = self.local_decls[local].ty;
+                    if rvalue_ty == from_ty {
+                        Some((first_pointer, local, false))
+                    } else if Some(rvalue_ty) == from_ty.builtin_deref(false) {
+                        Some((first_pointer, local, true))
+                    } else {
+                        None
+                    }
+                } else {
+                    None
+                }
+            } else {
+                None
+            };
+            if let Some((first_pointer, local, need_deref)) = copy_from {
+                if fields.iter().skip(1).all(|&v| {
+                    if let Value::Projection(pointer, ProjectionElem::Field(_, _)) = *self.get(v)
+                        && first_pointer == pointer
+                    {
+                        return true;
+                    }
+                    false
+                }) {
+                    *rvalue = Rvalue::Use(Operand::Copy(Place {
+                        local,
+                        projection: tcx.mk_place_elems(if need_deref {
+                            &[ProjectionElem::Deref]
+                        } else {
+                            &[]
+                        }),
+                    }));
+                    return Some(first_pointer);
+                }
+            }
+        }
 
         if let AggregateTy::RawPtr { data_pointer_ty, output_pointer_ty } = &mut ty {
             let mut was_updated = false;
