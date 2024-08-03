@@ -30,6 +30,33 @@ pub enum OverflowOp {
     Mul,
 }
 
+#[derive(Copy, Clone)]
+pub enum IntCastOp {
+    SignedToUnsigned,
+    UnsignedToUnsigned,
+    SignedToSigned,
+    UnsignedToSigned,
+    SignedToUnknown,
+    UnsignedToUnknown,
+}
+
+impl IntCastOp {
+    pub const fn new(from: bool, to: Option<bool>) -> Self {
+        match (from, to) {
+            (true, Some(false)) => Self::SignedToUnsigned,
+            (true, Some(true)) => Self::SignedToSigned,
+            (false, Some(false)) => Self::UnsignedToUnsigned,
+            (false, Some(true)) => Self::UnsignedToSigned,
+            (true, None) => Self::SignedToUnknown,
+            (false, None) => Self::UnsignedToUnknown,
+        }
+    }
+
+    pub const fn from_is_signed(self) -> bool {
+        matches!(self, Self::SignedToUnknown | Self::SignedToSigned | Self::SignedToUnsigned)
+    }
+}
+
 pub trait BuilderMethods<'a, 'tcx>:
     HasCodegen<'tcx>
     + CoverageInfoBuilderMethods<'tcx>
@@ -237,7 +264,8 @@ pub trait BuilderMethods<'a, 'tcx>:
     fn ptrtoint(&mut self, val: Self::Value, dest_ty: Self::Type) -> Self::Value;
     fn inttoptr(&mut self, val: Self::Value, dest_ty: Self::Type) -> Self::Value;
     fn bitcast(&mut self, val: Self::Value, dest_ty: Self::Type) -> Self::Value;
-    fn intcast(&mut self, val: Self::Value, dest_ty: Self::Type, is_signed: bool) -> Self::Value;
+    fn intcast(&mut self, val: Self::Value, dest_ty: Self::Type, cast_op: IntCastOp)
+    -> Self::Value;
     fn pointercast(&mut self, val: Self::Value, dest_ty: Self::Type) -> Self::Value;
 
     fn cast_float_to_int(

@@ -893,15 +893,22 @@ impl<'a, 'll, 'tcx> BuilderMethods<'a, 'tcx> for Builder<'a, 'll, 'tcx> {
         unsafe { llvm::LLVMBuildBitCast(self.llbuilder, val, dest_ty, UNNAMED) }
     }
 
-    fn intcast(&mut self, val: &'ll Value, dest_ty: &'ll Type, is_signed: bool) -> &'ll Value {
+    fn intcast(&mut self, val: &'ll Value, dest_ty: &'ll Type, cast_op: IntCastOp) -> &'ll Value {
         unsafe {
-            llvm::LLVMBuildIntCast2(
+            let inst = llvm::LLVMBuildIntCast2(
                 self.llbuilder,
                 val,
                 dest_ty,
-                if is_signed { True } else { False },
+                if cast_op.from_is_signed() { True } else { False },
                 UNNAMED,
-            )
+            );
+            if matches!(cast_op, IntCastOp::UnsignedToUnsigned)
+                && self.int_width(self.val_ty(val)) != 1
+                && self.int_width(dest_ty) > self.int_width(self.val_ty(val))
+            {
+                llvm::LLVMRustSetNonNeg(inst, true);
+            }
+            inst
         }
     }
 
@@ -931,7 +938,7 @@ impl<'a, 'll, 'tcx> BuilderMethods<'a, 'tcx> for Builder<'a, 'll, 'tcx> {
         flags: MemFlags,
     ) {
         assert!(!flags.contains(MemFlags::NONTEMPORAL), "non-temporal memcpy not supported");
-        let size = self.intcast(size, self.type_isize(), false);
+        let size = self.intcast(size, self.type_isize(), IntCastOp::UnsignedToUnknown);
         let is_volatile = flags.contains(MemFlags::VOLATILE);
         unsafe {
             llvm::LLVMRustBuildMemCpy(
@@ -956,7 +963,7 @@ impl<'a, 'll, 'tcx> BuilderMethods<'a, 'tcx> for Builder<'a, 'll, 'tcx> {
         flags: MemFlags,
     ) {
         assert!(!flags.contains(MemFlags::NONTEMPORAL), "non-temporal memmove not supported");
-        let size = self.intcast(size, self.type_isize(), false);
+        let size = self.intcast(size, self.type_isize(), IntCastOp::UnsignedToUnknown);
         let is_volatile = flags.contains(MemFlags::VOLATILE);
         unsafe {
             llvm::LLVMRustBuildMemMove(

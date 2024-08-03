@@ -1626,6 +1626,7 @@ extern "C" {
     ) -> &'a Value;
 
     pub fn LLVMRustSetFastMath(Instr: &Value);
+    pub fn LLVMRustSetNonNeg(Instr: &Value, nonNeg: bool);
     pub fn LLVMRustSetAlgebraicMath(Instr: &Value);
     pub fn LLVMRustSetAllowReassoc(Instr: &Value);
 

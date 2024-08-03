@@ -1247,11 +1247,11 @@ impl<'a, 'gcc, 'tcx> BuilderMethods<'a, 'tcx> for Builder<'a, 'gcc, 'tcx> {
 
     fn ptrtoint(&mut self, value: RValue<'gcc>, dest_ty: Type<'gcc>) -> RValue<'gcc> {
         let usize_value = self.cx.const_bitcast(value, self.cx.type_isize());
-        self.intcast(usize_value, dest_ty, false)
+        self.intcast(usize_value, dest_ty, IntCastOp::UnsignedToUnknown)
     }
 
     fn inttoptr(&mut self, value: RValue<'gcc>, dest_ty: Type<'gcc>) -> RValue<'gcc> {
-        let usize_value = self.intcast(value, self.cx.type_isize(), false);
+        let usize_value = self.intcast(value, self.cx.type_isize(), IntCastOp::UnsignedToUnknown);
         self.cx.const_bitcast(usize_value, dest_ty)
     }
 
@@ -1264,6 +1264,7 @@ impl<'a, 'gcc, 'tcx> BuilderMethods<'a, 'tcx> for Builder<'a, 'gcc, 'tcx> {
         value: RValue<'gcc>,
         dest_typ: Type<'gcc>,
         _is_signed: bool,
+        _dest_is_signed: bool,
     ) -> RValue<'gcc> {
         // NOTE: is_signed is for value, not dest_typ.
         self.gcc_int_cast(value, dest_typ)
@@ -1310,7 +1311,7 @@ impl<'a, 'gcc, 'tcx> BuilderMethods<'a, 'tcx> for Builder<'a, 'gcc, 'tcx> {
         flags: MemFlags,
     ) {
         assert!(!flags.contains(MemFlags::NONTEMPORAL), "non-temporal memcpy not supported");
-        let size = self.intcast(size, self.type_size_t(), false);
+        let size = self.intcast(size, self.type_size_t(), IntCastOp::UnsignedToUnknown);
         let _is_volatile = flags.contains(MemFlags::VOLATILE);
         let dst = self.pointercast(dst, self.type_i8p());
         let src = self.pointercast(src, self.type_ptr_to(self.type_void()));
@@ -1332,7 +1333,7 @@ impl<'a, 'gcc, 'tcx> BuilderMethods<'a, 'tcx> for Builder<'a, 'gcc, 'tcx> {
         flags: MemFlags,
     ) {
         assert!(!flags.contains(MemFlags::NONTEMPORAL), "non-temporal memmove not supported");
-        let size = self.intcast(size, self.type_size_t(), false);
+        let size = self.intcast(size, self.type_size_t(), IntCastOp::UnsignedToUnknown);
         let _is_volatile = flags.contains(MemFlags::VOLATILE);
         let dst = self.pointercast(dst, self.type_i8p());
         let src = self.pointercast(src, self.type_ptr_to(self.type_void()));
@@ -1359,7 +1360,7 @@ impl<'a, 'gcc, 'tcx> BuilderMethods<'a, 'tcx> for Builder<'a, 'gcc, 'tcx> {
         let memset = self.context.get_builtin_function("memset");
         // TODO(antoyo): handle align and is_volatile.
         let fill_byte = self.context.new_cast(self.location, fill_byte, self.i32_type);
-        let size = self.intcast(size, self.type_size_t(), false);
+        let size = self.intcast(size, self.type_size_t(), IntCastOp::UnsignedToUnknown);
         self.block.add_eval(
             self.location,
             self.context.new_call(self.location, memset, &[ptr, fill_byte, size]),
