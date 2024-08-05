@@ -23,8 +23,8 @@ use super::{CachedLlbb, FunctionCx, LocalRef};
 use crate::base::{self, is_call_from_compiler_builtins_to_upstream_monomorphization};
 use crate::common::{self, IntPredicate};
 use crate::errors::CompilerBuiltinsCannotCall;
+use crate::meth;
 use crate::traits::*;
-use crate::{meth, MemFlags};
 
 // Indicates if we are in the middle of merging a BB's successor into it. This
 // can happen when BB jumps directly to its successor and the successor has no
@@ -462,7 +462,7 @@ impl<'a, 'tcx, Bx: BuilderMethods<'a, 'tcx>> FunctionCx<'a, 'tcx, Bx> {
                 }
             }
 
-            PassMode::Cast { cast: cast_ty, pad_i32: _ } => {
+            PassMode::Cast { cast, pad_i32: _ } => {
                 let op = match self.locals[mir::RETURN_PLACE] {
                     LocalRef::Operand(op) => op,
                     LocalRef::PendingOperand => bug!("use of return before def"),
@@ -471,23 +471,22 @@ impl<'a, 'tcx, Bx: BuilderMethods<'a, 'tcx>> FunctionCx<'a, 'tcx, Bx> {
                     }
                     LocalRef::UnsizedPlace(_) => bug!("return type must be sized"),
                 };
-                let llslot = match op.val {
+                let (llslot, align) = match op.val {
                     Immediate(_) | Pair(..) => {
                         let scratch = PlaceRef::alloca(bx, self.fn_abi.ret.layout);
                         op.val.store(bx, scratch);
-                        scratch.val.llval
+                        (scratch.val.llval, scratch.val.align)
                     }
                     Ref(place_val) => {
                         assert_eq!(
                             place_val.align, op.layout.align.abi,
                             "return place is unaligned!"
                         );
-                        place_val.llval
+                        (place_val.llval, place_val.align)
                     }
                     ZeroSized => bug!("ZST return value shouldn't be in PassMode::Cast"),
                 };
-                let ty = bx.cast_backend_type(cast_ty);
-                bx.load(ty, llslot, self.fn_abi.ret.layout.align.abi)
+                cast.cast_rust_abi_to_other(bx, llslot, align)
             }
         };
         bx.ret(llval);
@@ -1519,35 +1518,8 @@ impl<'a, 'tcx, Bx: BuilderMethods<'a, 'tcx>> FunctionCx<'a, 'tcx, Bx> {
 
         if by_ref && !arg.is_indirect() {
             // Have to load the argument, maybe while casting it.
-            if let PassMode::Cast { cast, pad_i32: _ } = &arg.mode {
-                // The ABI mandates that the value is passed as a different struct representation.
-                // Spill and reload it from the stack to convert from the Rust representation to
-                // the ABI representation.
-                let scratch_size = cast.size(bx);
-                let scratch_align = cast.align(bx);
-                // Note that the ABI type may be either larger or smaller than the Rust type,
-                // due to the presence or absence of trailing padding. For example:
-                // - On some ABIs, the Rust layout { f64, f32, <f32 padding> } may omit padding
-                //   when passed by value, making it smaller.
-                // - On some ABIs, the Rust layout { u16, u16, u16 } may be padded up to 8 bytes
-                //   when passed by value, making it larger.
-                let copy_bytes = cmp::min(cast.unaligned_size(bx).bytes(), arg.layout.size.bytes());
-                // Allocate some scratch space...
-                let llscratch = bx.alloca(scratch_size, scratch_align);
-                bx.lifetime_start(llscratch, scratch_size);
-                // ...memcpy the value...
-                bx.memcpy(
-                    llscratch,
-                    scratch_align,
-                    llval,
-                    align,
-                    bx.const_usize(copy_bytes),
-                    MemFlags::empty(),
-                );
-                // ...and then load it with the ABI type.
-                let cast_ty = bx.cast_backend_type(cast);
-                llval = bx.load(cast_ty, llscratch, scratch_align);
-                bx.lifetime_end(llscratch, scratch_size);
+            if let PassMode::Cast { cast, .. } = &arg.mode {
+                llval = cast.cast_rust_abi_to_other(bx, llval, align);
             } else {
                 // We can't use `PlaceRef::load` here because the argument
                 // may have a type we don't treat as immediate, but the ABI
