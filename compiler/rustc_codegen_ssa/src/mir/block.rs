@@ -23,8 +23,8 @@ use super::{CachedLlbb, FunctionCx, LocalRef};
 use crate::base::{self, is_call_from_compiler_builtins_to_upstream_monomorphization};
 use crate::common::{self, IntPredicate};
 use crate::errors::CompilerBuiltinsCannotCall;
+use crate::meth;
 use crate::traits::*;
-use crate::{meth, MemFlags};
 
 // Indicates if we are in the middle of merging a BB's successor into it. This
 // can happen when BB jumps directly to its successor and the successor has no
@@ -1471,6 +1471,7 @@ impl<'a, 'tcx, Bx: BuilderMethods<'a, 'tcx>> FunctionCx<'a, 'tcx, Bx> {
                     (scratch.llval, scratch.align, true)
                 }
                 PassMode::Cast { .. } => {
+                    // FIXME:
                     let scratch = PlaceRef::alloca(bx, arg.layout);
                     op.val.store(bx, scratch);
                     (scratch.val.llval, scratch.val.align, true)
@@ -1519,31 +1520,29 @@ impl<'a, 'tcx, Bx: BuilderMethods<'a, 'tcx>> FunctionCx<'a, 'tcx, Bx> {
                 // The ABI mandates that the value is passed as a different struct representation.
                 // Spill and reload it from the stack to convert from the Rust representation to
                 // the ABI representation.
-                let scratch_size = cast.size(bx);
-                let scratch_align = cast.align(bx);
-                // Note that the ABI type may be either larger or smaller than the Rust type,
-                // due to the presence or absence of trailing padding. For example:
-                // - On some ABIs, the Rust layout { f64, f32, <f32 padding> } may omit padding
-                //   when passed by value, making it smaller.
-                // - On some ABIs, the Rust layout { u16, u16, u16 } may be padded up to 8 bytes
-                //   when passed by value, making it larger.
-                let copy_bytes = cmp::min(cast.unaligned_size(bx).bytes(), arg.layout.size.bytes());
-                // Allocate some scratch space...
-                let llscratch = bx.alloca(scratch_size, scratch_align);
-                bx.lifetime_start(llscratch, scratch_size);
-                // ...memcpy the value...
-                bx.memcpy(
-                    llscratch,
-                    scratch_align,
-                    llval,
-                    align,
-                    bx.const_usize(copy_bytes),
-                    MemFlags::empty(),
-                );
-                // ...and then load it with the ABI type.
                 let cast_ty = bx.cast_backend_type(cast);
-                llval = bx.load(cast_ty, llscratch, scratch_align);
-                bx.lifetime_end(llscratch, scratch_size);
+                let mut index = 0;
+                let mut offset = 0;
+                let mut target = llval;
+                for reg in cast.prefix.iter().filter_map(|&x| x) {
+                    let ptr = if offset == 0 {
+                        llval
+                    } else {
+                        bx.inbounds_ptradd(llval, bx.const_usize(offset))
+                    };
+                    let load = bx.load(bx.reg_backend_type(&reg), ptr, align);
+                    target = if offset == 0 { bx.const_poison(cast_ty) } else { target };
+                    llval = bx.insert_value(target, load, index);
+                    index += 1;
+                    offset += reg.size.bytes();
+                }
+                llval = if index == 0 {
+                    bx.load(cast_ty, llval, align)
+                } else {
+                    let ptr = bx.inbounds_ptradd(llval, bx.const_usize(offset));
+                    let load = bx.load(bx.reg_backend_type(&cast.rest.unit), ptr, align);
+                    bx.insert_value(target, load, index)
+                };
             } else {
                 // We can't use `PlaceRef::load` here because the argument
                 // may have a type we don't treat as immediate, but the ABI
