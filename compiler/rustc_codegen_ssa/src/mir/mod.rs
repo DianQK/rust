@@ -229,26 +229,10 @@ pub fn codegen_mir<'a, 'tcx, Bx: BuilderMethods<'a, 'tcx>>(
             let layout = start_bx.layout_of(fx.monomorphize(decl.ty));
             assert!(!layout.ty.has_erasable_regions());
 
-            if local == mir::RETURN_PLACE {
-                match fx.fn_abi.ret.mode {
-                    PassMode::Indirect { .. } => {
-                        debug!("alloc: {:?} (return place) -> place", local);
-                        let llretptr = start_bx.get_param(0);
-                        return LocalRef::Place(PlaceRef::new_sized(llretptr, layout));
-                    }
-                    PassMode::Cast { ref cast, .. }
-                        if start_bx.cast_backend_type(cast)
-                            == start_bx.reg_backend_type(&cast.rest.unit)
-                            && cast.size(&start_bx) > layout.size =>
-                    {
-                        // When using just a single register, we directly use load or store instructions,
-                        // so we need to ensure that the allocated space is sufficiently large.
-                        debug!("alloc: {:?} (return place) -> place", local);
-                        let size = cast.size(&start_bx);
-                        return LocalRef::Place(PlaceRef::alloca_size(&mut start_bx, size, layout));
-                    }
-                    _ => {}
-                };
+            if local == mir::RETURN_PLACE && fx.fn_abi.ret.is_indirect() {
+                debug!("alloc: {:?} (return place) -> place", local);
+                let llretptr = start_bx.get_param(0);
+                return LocalRef::Place(PlaceRef::new_sized(llretptr, layout));
             }
 
             if memory_locals.contains(local) {
