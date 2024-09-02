@@ -548,6 +548,9 @@ fn simplify_to_copy<'tcx>(
     switch_bb_idx: BasicBlock,
     param_env: ParamEnv<'tcx>,
 ) -> Option<()> {
+    if switch_bb_idx != START_BLOCK {
+        return None;
+    }
     let bbs = &body.basic_blocks;
     // Check if the copy source matches the following pattern.
     // _2 = discriminant(*_1); // "*_1" is the expected the copy source.
@@ -561,6 +564,11 @@ fn simplify_to_copy<'tcx>(
     };
     let expected_src_ty = expected_src_place.ty(body.local_decls(), tcx);
     if !expected_src_ty.ty.is_enum() || expected_src_ty.variant_index.is_some() {
+        return None;
+    }
+    let expected_dest_place = Place::return_place();
+    let expected_dest_ty = expected_dest_place.ty(body.local_decls(), tcx);
+    if expected_dest_ty.ty != expected_src_ty.ty || expected_dest_ty.variant_index.is_some() {
         return None;
     }
     let targets = match bbs[switch_bb_idx].terminator().kind {
@@ -589,7 +597,7 @@ fn simplify_to_copy<'tcx>(
 
     let borrowed_locals = borrowed_locals(body);
     let mut live = None;
-    let mut expected_dest_place = None;
+
     for (index, target_bb) in targets.iter() {
         let stmts = &bbs[target_bb].statements;
         if stmts.is_empty() {
@@ -605,7 +613,7 @@ fn simplify_to_copy<'tcx>(
             let ty::Adt(def, _) = dest_ty.ty.kind() else {
                 return None;
             };
-            if *expected_dest_place.get_or_insert(*place) != *place {
+            if expected_dest_place != *place {
                 return None;
             }
             match rvalue {
@@ -637,7 +645,7 @@ fn simplify_to_copy<'tcx>(
             // If the BB contains more than one statement, we have to check if these statements can be ignored.
             let mut lived_stmts: BitSet<usize> =
                 BitSet::new_filled(bbs[target_bb].statements.len());
-            let mut dest_place = None;
+            let mut expected_copy_stmt = None;
             for (statement_index, statement) in bbs[target_bb].statements.iter().enumerate().rev() {
                 let loc = Location { block: target_bb, statement_index };
                 if let StatementKind::Assign(assign) = &statement.kind {
@@ -661,13 +669,16 @@ fn simplify_to_copy<'tcx>(
                         live.seek_before_primary_effect(loc);
                         if !live.get().contains(place.local) {
                             lived_stmts.remove(statement_index);
-                        } else if matches!(
-                            &statement.kind,
-                            StatementKind::Assign(box (_, Rvalue::Use(Operand::Copy(_))))
-                        ) && dest_place.is_none()
+                        } else if let StatementKind::Assign(box (
+                            _,
+                            Rvalue::Use(Operand::Copy(src_place)),
+                        )) = statement.kind
+                            && expected_copy_stmt.is_none()
+                            && expected_src_place == src_place
+                            && expected_dest_place == *place
                         {
                             // There is only one statement that cannot be ignored that can be used as an expected copy statement.
-                            dest_place = Some(*place);
+                            expected_copy_stmt = Some(statement_index);
                         } else {
                             return None;
                         }
@@ -687,21 +698,19 @@ fn simplify_to_copy<'tcx>(
                     }
                 }
             }
-            let dest_place = dest_place?;
-            if *expected_dest_place.get_or_insert(dest_place) != dest_place {
-                return None;
-            }
+            let expected_copy_stmt = expected_copy_stmt?;
             // We can ignore the paired StorageLive and StorageDead.
             let mut storage_live_locals: BitSet<Local> = BitSet::new_empty(body.local_decls.len());
             for stmt_index in lived_stmts.iter() {
                 let statement = &bbs[target_bb].statements[stmt_index];
                 match &statement.kind {
-                    StatementKind::Assign(box (place, Rvalue::Use(Operand::Copy(src_place))))
-                        if *place == dest_place && *src_place == expected_src_place => {}
+                    StatementKind::Assign(_) if expected_copy_stmt == stmt_index => {}
                     StatementKind::StorageLive(local)
-                        if *local != dest_place.local && storage_live_locals.insert(*local) => {}
+                        if *local != expected_dest_place.local
+                            && storage_live_locals.insert(*local) => {}
                     StatementKind::StorageDead(local)
-                        if *local != dest_place.local && storage_live_locals.remove(*local) => {}
+                        if *local != expected_dest_place.local
+                            && storage_live_locals.remove(*local) => {}
                     StatementKind::Nop => {}
                     _ => return None,
                 }
@@ -711,7 +720,6 @@ fn simplify_to_copy<'tcx>(
             }
         }
     }
-    let expected_dest_place = expected_dest_place?;
     let statement_index = bbs[switch_bb_idx].statements.len();
     let parent_end = Location { block: switch_bb_idx, statement_index };
     let mut patch = MirPatch::new(body);
