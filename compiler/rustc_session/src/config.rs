@@ -508,7 +508,7 @@ impl FromStr for SplitDwarfKind {
 pub enum OutputType {
     Bitcode,
     ThinLinkBitcode,
-    ThinBitcode,
+    PreLtoBitcode,
     Assembly,
     LlvmAssembly,
     Mir,
@@ -539,7 +539,7 @@ impl OutputType {
             OutputType::Exe | OutputType::DepInfo | OutputType::Metadata => true,
             OutputType::Bitcode
             | OutputType::ThinLinkBitcode
-            | OutputType::ThinBitcode
+            | OutputType::PreLtoBitcode
             | OutputType::Assembly
             | OutputType::LlvmAssembly
             | OutputType::Mir
@@ -551,7 +551,7 @@ impl OutputType {
         match *self {
             OutputType::Bitcode => "llvm-bc",
             OutputType::ThinLinkBitcode => "thin-link-bitcode",
-            OutputType::ThinBitcode => "thin-llvm-bc",
+            OutputType::PreLtoBitcode => "pre-lto-llvm-bc",
             OutputType::Assembly => "asm",
             OutputType::LlvmAssembly => "llvm-ir",
             OutputType::Mir => "mir",
@@ -569,7 +569,7 @@ impl OutputType {
             "mir" => OutputType::Mir,
             "llvm-bc" => OutputType::Bitcode,
             "thin-link-bitcode" => OutputType::ThinLinkBitcode,
-            "thin-llvm-bc" => OutputType::ThinBitcode,
+            "pre-lto-llvm-bc" => OutputType::PreLtoBitcode,
             "obj" => OutputType::Object,
             "metadata" => OutputType::Metadata,
             "link" => OutputType::Exe,
@@ -583,7 +583,7 @@ impl OutputType {
             "`{}`, `{}`, `{}`, `{}`, `{}`, `{}`, `{}`, `{}`, `{}`, `{}",
             OutputType::Bitcode.shorthand(),
             OutputType::ThinLinkBitcode.shorthand(),
-            OutputType::ThinBitcode.shorthand(),
+            OutputType::PreLtoBitcode.shorthand(),
             OutputType::Assembly.shorthand(),
             OutputType::LlvmAssembly.shorthand(),
             OutputType::Mir.shorthand(),
@@ -598,7 +598,7 @@ impl OutputType {
         match *self {
             OutputType::Bitcode => "bc",
             OutputType::ThinLinkBitcode => "indexing.o",
-            OutputType::ThinBitcode => "thin.bc",
+            OutputType::PreLtoBitcode => "pre-lto.bc",
             OutputType::Assembly => "s",
             OutputType::LlvmAssembly => "ll",
             OutputType::Mir => "mir",
@@ -617,7 +617,7 @@ impl OutputType {
             | OutputType::DepInfo => true,
             OutputType::Bitcode
             | OutputType::ThinLinkBitcode
-            | OutputType::ThinBitcode
+            | OutputType::PreLtoBitcode
             | OutputType::Object
             | OutputType::Metadata
             | OutputType::Exe => false,
@@ -705,7 +705,7 @@ impl OutputTypes {
         self.0.keys().any(|k| match *k {
             OutputType::Bitcode
             | OutputType::ThinLinkBitcode
-            | OutputType::ThinBitcode
+            | OutputType::PreLtoBitcode
             | OutputType::Assembly
             | OutputType::LlvmAssembly
             | OutputType::Mir
@@ -720,7 +720,7 @@ impl OutputTypes {
         self.0.keys().any(|k| match *k {
             OutputType::Bitcode
             | OutputType::ThinLinkBitcode
-            | OutputType::ThinBitcode
+            | OutputType::PreLtoBitcode
             | OutputType::Assembly
             | OutputType::LlvmAssembly
             | OutputType::Mir

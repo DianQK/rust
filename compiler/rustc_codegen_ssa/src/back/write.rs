@@ -19,9 +19,7 @@ use rustc_errors::{
 };
 use rustc_fs_util::link_or_copy;
 use rustc_hir::def_id::{CrateNum, LOCAL_CRATE};
-use rustc_incremental::{
-    copy_cgu_workproduct_to_incr_comp_cache_dir, in_incr_comp_dir, in_incr_comp_dir_sess,
-};
+use rustc_incremental::{copy_cgu_workproduct_to_incr_comp_cache_dir, in_incr_comp_dir};
 use rustc_metadata::EncodedMetadata;
 use rustc_metadata::fs::copy_to_stdout;
 use rustc_middle::bug;
@@ -47,8 +45,6 @@ use crate::{
     CachedModuleCodegen, CodegenResults, CompiledModule, CrateInfo, ModuleCodegen, ModuleKind,
     errors,
 };
-
-const PRE_LTO_BC_EXT: &str = "pre-lto.bc";
 
 /// What kind of object file to emit.
 #[derive(Clone, Copy, PartialEq)]
@@ -616,8 +612,8 @@ fn produce_final_output_artifacts(
                 // them for making an rlib.
                 copy_if_one_unit(OutputType::Bitcode, true);
             }
-            OutputType::ThinBitcode => {
-                copy_if_one_unit(OutputType::ThinBitcode, true);
+            OutputType::PreLtoBitcode => {
+                copy_if_one_unit(OutputType::PreLtoBitcode, true);
             }
             OutputType::ThinLinkBitcode => {
                 copy_if_one_unit(OutputType::ThinLinkBitcode, false);
@@ -890,8 +886,9 @@ fn execute_optimize_work_item<B: ExtraBackendMethods>(
     // If we're doing some form of incremental LTO then we need to be sure to
     // save our module to disk first.
     let bitcode = if cgcx.config(module.kind).emit_pre_lto_bc {
-        let filename = pre_lto_bitcode_filename(&module.name);
-        cgcx.incr_comp_session_dir.as_ref().map(|path| path.join(&filename))
+        cgcx.incr_comp_session_dir
+            .as_ref()
+            .map(|path| incr_comp_pre_lto_bitcode(path, &module.name))
     } else {
         None
     };
@@ -900,7 +897,9 @@ fn execute_optimize_work_item<B: ExtraBackendMethods>(
         ComputedLtoType::No => finish_intra_module_work(cgcx, module, module_config),
         ComputedLtoType::Thin => {
             let (name, thin_buffer) = B::prepare_thin(module, false);
-            if let Some(path) = bitcode {
+            if let Some(path) = bitcode
+                && !path.exists()
+            {
                 fs::write(&path, thin_buffer.data()).unwrap_or_else(|e| {
                     panic!("Error writing pre-lto-bitcode file `{}`: {}", path.display(), e);
                 });
@@ -2122,8 +2121,8 @@ pub(crate) fn submit_pre_lto_module_to_llvm<B: ExtraBackendMethods>(
     tx_to_llvm_workers: &Sender<Box<dyn Any + Send>>,
     module: CachedModuleCodegen,
 ) {
-    let filename = pre_lto_bitcode_filename(&module.name);
-    let bc_path = in_incr_comp_dir_sess(tcx.sess, &filename);
+    let bc_path = incr_comp_pre_lto_bitcode(&tcx.sess.incr_comp_session_dir(), &module.name);
+
     let file = fs::File::open(&bc_path)
         .unwrap_or_else(|e| panic!("failed to open bitcode file `{}`: {}", bc_path.display(), e));
 
@@ -2139,8 +2138,11 @@ pub(crate) fn submit_pre_lto_module_to_llvm<B: ExtraBackendMethods>(
     })));
 }
 
-fn pre_lto_bitcode_filename(module_name: &str) -> String {
-    format!("{module_name}.{PRE_LTO_BC_EXT}")
+pub fn incr_comp_pre_lto_bitcode(incr_comp_session_dir: &Path, module_name: &str) -> PathBuf {
+    in_incr_comp_dir(
+        incr_comp_session_dir,
+        &format!("{module_name}.{}", OutputType::PreLtoBitcode.extension()),
+    )
 }
 
 fn msvc_imps_needed(tcx: TyCtxt<'_>) -> bool {
