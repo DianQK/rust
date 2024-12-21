@@ -578,10 +578,10 @@ impl TestProps {
             // we don't want to pollute anything with backtrace-files
             // also turn off backtraces in order to save some execution
             // time on the tests; we only need to know IF it crashes
-            self.rustc_env = vec![
+            self.rustc_env.extend([
                 ("RUST_BACKTRACE".to_string(), "0".to_string()),
                 ("RUSTC_ICE".to_string(), "0".to_string()),
-            ];
+            ]);
         }
 
         for key in &["RUST_TEST_NOCAPTURE", "RUST_TEST_THREADS"] {
